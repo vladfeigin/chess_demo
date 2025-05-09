@@ -28,7 +28,7 @@ load_dotenv()
 
 board = chess.Board()  # local board for legal‑move validation only
 
-mcp = FastMCP(title="White Chess Agent", protocol_version="0.2.0")
+mcp = FastMCP(title="White Chess Agent")
 
 model_client = AzureOpenAIChatCompletionClient(
     model="gpt-4o",
@@ -38,11 +38,14 @@ model_client = AzureOpenAIChatCompletionClient(
 )
 white_llm = AssistantAgent(
     name="white_player",
-    description="You are a white chess player. You should analyze the current board and provide a legal best move in UCI notation.",
+    description=""" You are a chess player, playing with white pieces. 
+                    Before you decide about a next move, you must analyze the current 
+                    board state and provide a legal best move in UCI notation. 
+                    Provide LEGAL MOVES in UCI notation only.
+                    Double check and reason about the selected move before sending it. 
+                    Your goal is to win the game.""",
     model_client=model_client,
 )
-
-
 #rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 
 @mcp.tool(

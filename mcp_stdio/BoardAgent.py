@@ -16,11 +16,20 @@ os.environ.setdefault("MCP_PROTOCOL", "stdio")
 WHITE_PATH = os.path.join(os.getcwd(), "WhiteAgent.py")
 BLACK_PATH = os.path.join(os.getcwd(), "BlackAgent.py")
 
+# Board customization options
+BOARD_SIZE = 600  # Size in pixels
+DARK_SQUARE_COLOR = "#8B4513"  # Saddle Brown
+LIGHT_SQUARE_COLOR = "#F5DEB3"  # Wheat
+HIGHLIGHT_COLOR = "#32CD32"  # Lime Green
+
 moves_history = []
 
 async def run() -> None:
     board = chess.Board()
-    game_board = display.start()
+    
+    # Start the display with correct parameter names
+    game_board = display.start( )
+                               
    
     # Spawn two MCP servers over STDIO
     white_params = StdioServerParams(
@@ -48,16 +57,18 @@ async def run() -> None:
             print(f"[Board] Asking {current_name} for move. FEN: {fen}", flush=True)
 
             #call tool by name    
-            result = await current_wb.call_tool("move", {"fen": fen})  #  [oai_citation:0‡Microsoft GitHub](https://microsoft.github.io/autogen/stable//reference/python/autogen_ext.tools.mcp.html?utm_source=chatgpt.com)
-            print("result:", result.result[0].content) 
+            result = await current_wb.call_tool("move", {"fen": fen} )  #  [oai_citation:0‡Microsoft GitHub](https://microsoft.github.io/autogen/stable//reference/python/autogen_ext.tools.mcp.html?utm_source=chatgpt.com)
+            print("tool result :", result.result[0].content) 
             # `result` is a ToolResult; `.content` holds the JSON payload
             #check if result is not empty and contains a valid move
             if not result.result[0].content:
                 print(f"[Board] {current_name.title()}Agent error: No move found", flush=True)
                 continue
             payload = json.loads(result.result[0].content) 
+            print("payload:", payload)
             #check if result is an error, then try again to get valid move
-            if "error" in payload and num_invalid_moves < max_num_invalid_moves:
+            if "error" in payload: # and num_invalid_moves < max_num_invalid_moves:
+                print("num_invalid_moves:", num_invalid_moves)
                 print(f"[Board] {current_name.title()}Agent error:", payload, flush=True)
                 num_invalid_moves += 1
                 continue

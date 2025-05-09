@@ -11,7 +11,7 @@ load_dotenv()
 
 board = chess.Board()
 
-mcp = FastMCP(title="Black Chess Agent", protocol_version="0.2.0")
+mcp = FastMCP(title="Black Chess Agent")
 
 model_client = AzureOpenAIChatCompletionClient(
     model="gpt-4o",
@@ -19,7 +19,14 @@ model_client = AzureOpenAIChatCompletionClient(
     azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
     api_version="2024-02-15-preview",
 )
-black_llm = AssistantAgent("black_player",description= "You are a black chess player. You should analyze the current board and provide a legal best move in UCI notation." , model_client=model_client)
+black_llm = AssistantAgent("black_player",
+                description=""" You are a chess player, playing with black pieces. 
+                Before you decide about a next move, you must analyze the current 
+                board state and provide a legal best move in UCI notation. 
+                Provide LEGAL MOVES in UCI notation only.
+                Double check and reason about the selected move before sending it. 
+                Your goal is to win the game.""",
+                model_client=model_client)
 
 @mcp.tool(
     name="move",
