@@ -5,13 +5,16 @@
 #test with FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 mcp dev mcp_sse/white/white_agent.py:mcp
 
+#or 
+npx @modelcontextprotocol/inspector
+
 #test with FEN: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1
 mcp dev mcp_sse/black/black_agent.py:mcp
 
 docker build -f mcp_sse/white/Dockerfile -t white-agent:latest .
 
-docker run --env-file .env -d --name white-agent -p 8001:8001 white-agent:latest
+docker run --env-file .env -d --name white-agent -p 8001:8000 white-agent:latest
 
 docker build -f mcp_sse/black/Dockerfile -t black-agent:latest .
 
-docker run --env-file .env -d --name black-agent -p 8002:8002 black-agent:latest
+docker run --env-file .env -d --name black-agent -p 8002:8000 black-agent:latest

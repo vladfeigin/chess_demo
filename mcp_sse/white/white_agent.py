@@ -91,6 +91,7 @@ async def move_tool(fen: str):
     return {"uci": uci}
 
 if __name__ == "__main__":
+    log.info("Starting White Player Agent...")
     #import uvicorn
     #uvicorn.run(mcp, host="0.0.0.0", port=8001)
     mcp.run(transport='sse')
