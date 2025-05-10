@@ -1,0 +1,8 @@
+{
+    "servers": {
+      "Chess White Player ": {
+       "type": "sse",
+       "url": "http://localhost:5001/sse"
+     } 
+    }
+  }

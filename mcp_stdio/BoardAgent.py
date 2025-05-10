@@ -95,7 +95,7 @@ async def run() -> None:
             
             display.update(board.fen(), game_board)  
             print(f"[Board] Applied {uci}", flush=True)
-
+            
             moves_history.append(uci)
 
             # swap players
@@ -113,6 +113,9 @@ async def run() -> None:
         print(f"[Board] Game over: {result} - Reason: {reason}")
 
     pgn = chess.pgn.Game.from_board(board)
+    # display the board + history
+    print(board)              # ASCII art from python-chess
+    print("Moves so far:", " ".join(moves_history), flush=True)
     print("pgn:", pgn)  
     with open("game_record.pgn", "w") as f:
         f.write(str(pgn))
