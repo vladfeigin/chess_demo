@@ -22,7 +22,7 @@ board = chess.Board()
 
 mcp = FastMCP(name="Black Pieces Chess Agent",
               description="Black pieces chess agent using SSE transport",
-              base_url="http://localhost:8001",
+              base_url="http://localhost:8000",
 
               describe_all_responses=True,  # Include all possible response schemas
               describe_full_response_schema=True)  # Include full JSON schema in descriptions)
@@ -36,16 +36,30 @@ client = AzureOpenAIChatCompletionClient(
 agent = AssistantAgent(
     name="black_pieces_player",
     model_client=client,
-    description="""You are a chess player, playing with black pieces. 
+    description="""You are a chess player, playing with BLACK pieces. 
                     Before you decide about a next move, you must analyze the current 
                     board state and provide a legal best move in UCI notation. 
                     Provide LEGAL MOVES in UCI notation only.
                     Double check and reason about the selected move before sending it. 
                     Your goal is to win the game.""",
-    system_message=(
-        "You play BLACK. Respond only with one legal UCI move (e.g. e2e4) for the given FEN."
-    ),
-)
+    system_message=
+        """
+            You are a world-renowned chess grandmaster. You play BLACK.
+            Respond only with one legal UCI move (e.g. e7e5) for the given FEN.
+            You must output exactly ONE move in Universal Chess Interface (UCI) format:
+                • four characters like e2e4, or
+                • five if promotion, e.g. e7e8q
+                No capture symbol (x), no checks (+/#), no words. Output ONLY the move.
+            Double-check the move is legal in the current position.
+            Do not make stupid moves!
+            Follow these basic rules:
+            • Prevent the most common blunder (self-check).
+            • Avoid pointless sacrifices.
+            • Stop discovered checks / loss of the queen.
+            • Bishops, rooks and queens cannot jump over pieces.
+            • Pawns never move backwards or capture straight ahead.
+            • Your move must remove any check to your own king. If not, try again.
+        """)
 
 @mcp.tool(
     name="move",
@@ -67,7 +81,7 @@ async def move_tool(fen: str):
         return {"error": f"Invalid FEN: {str(e)}"}
     
     # Make sure it' black's turn in this position
-    if not board.turn:
+    if board.turn:
         log.info("[BlackAgent] ERROR: It's white's turn in this position, but I'm the black pieces player")
         return {"error": "It's not black's turn in this position"}
     

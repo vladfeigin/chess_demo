@@ -22,8 +22,7 @@ board = chess.Board()
 
 mcp = FastMCP(name="White Chess Agent",
               description="White chess agent using SSE transport",
-              base_url="http://localhost:8001",
-
+              base_url="http://localhost:8000",
               describe_all_responses=True,  # Include all possible response schemas
               describe_full_response_schema=True)  # Include full JSON schema in descriptions)
 
@@ -36,16 +35,29 @@ client = AzureOpenAIChatCompletionClient(
 agent = AssistantAgent(
     name="white_player",
     model_client=client,
-    description="""You are a chess player, playing with white pieces. 
+    description="""You are a chess player, playing with WHITE pieces.
                     Before you decide about a next move, you must analyze the current 
                     board state and provide a legal best move in UCI notation. 
                     Provide LEGAL MOVES in UCI notation only.
                     Double check and reason about the selected move before sending it. 
                     Your goal is to win the game.""",
-    system_message=(
-        "You play WHITE. Respond only with one legal UCI move (e.g. e2e4) for the given FEN."
-    ),
-)
+    system_message=
+       """You are world renowned chess grandmaster. You play WHITE. 
+        Respond only with one legal UCI move (e.g. e2e4) for the given FEN. 
+        You must output exactly ONE move in Universal Chess Interface (UCI) format:
+            • four characters like e2e4, or
+            • five if promotion, e.g. e7e8q
+            No capture symbol (x), no checks (+/#), no words. Output ONLY the move.
+        Double check the selected move is a valid and legal given current FEN!
+        Don't make stupid moves! 
+        Follow those basic rules:
+            Prevents the most common blunder (self-check).
+            Avoids pointless sacrifices.
+            Stops discovered checks/loss of queen.
+            Reduces illegal “through-piece” moves.
+            Eliminates illegal backward-pawn or straight captures.
+            Your move must remove any check to your own king. If not, try again.
+        """)
 
 @mcp.tool(
     name="move",
@@ -54,29 +66,30 @@ agent = AssistantAgent(
 async def move_tool(fen: str):
     """Return next white move (UCI)."""
     log.info(f"[WhiteAgent] Received move request. FEN: {fen}")
-    
+
     # Verify that we got a valid FEN string, not a UCI move
     if len(fen.split()) < 4 or '/' not in fen:
         log.error(f"[WhiteAgent] ERROR: Invalid FEN format: {fen}")
         return {"error": f"Invalid input: expected FEN position string, got '{fen}'"}
-    
+
     try:
         board.set_fen(fen)
     except ValueError as e:
         log.error(f"[WhiteAgent] ERROR: Cannot set board from FEN: {e}")
         return {"error": f"Invalid FEN: {str(e)}"}
-    
+
     # Make sure it's white's turn in this position
     if not board.turn:
-        log.info("[WhiteAgent] ERROR: It's black's turn in this position, but I'm the white player")
+        log.info(
+            "[WhiteAgent] ERROR: It's black's turn in this position, but I'm the white player")
         return {"error": "It's not white's turn in this position"}
-    
+
     prompt = f"You are white. Current board FEN: {fen}. Provide one legal move in UCI only."
     resp = await agent.run(task=prompt)
     uci_raw = resp.messages[-1].content   # e.g. "e2e4 TERMINATE"
     uci = uci_raw.split()[0]              # take first token → "e2e4"
     log.info("[WhiteAgent] LLM suggested: %s", uci)
-    
+
     # Validate the UCI move
     try:
         mv = chess.Move.from_uci(uci)
@@ -86,12 +99,10 @@ async def move_tool(fen: str):
     except ValueError:
         log.error(f"[WhiteAgent] Invalid UCI format: {uci}")
         return {"error": f"Invalid UCI move format: {uci}"}
-        
+
     log.info("[WhiteAgent] Move accepted -> %s", uci)
     return {"uci": uci}
 
 if __name__ == "__main__":
     log.info("Starting White Player Agent...")
-    #import uvicorn
-    #uvicorn.run(mcp, host="0.0.0.0", port=8001)
     mcp.run(transport='sse')

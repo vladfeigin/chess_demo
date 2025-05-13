@@ -8,7 +8,7 @@ SSE-based orchestrator for a two-engine chess game:
     and logs all events.
 
 Requires:
-    pip install autogen-agentchat autogen-ext[openai,mcp] python-chess chessboard rich
+ uv add autogen-agentchat autogen-ext[openai,mcp] python-chess chess-board rich
 """
 import asyncio
 import json
@@ -29,18 +29,12 @@ logging.basicConfig(
 log = logging.getLogger("board")
 
 # endpoints for SSE agents
-WHITE_URL = os.getenv("WHITE_URL", "http://localhost:8000")
-BLACK_URL = os.getenv("BLACK_URL", "http://localhost:8001")
-
-# Board customization options (if supported by display)
-BOARD_SIZE = os.getenv("BOARD_SIZE", None)  # optional
-DARK_SQUARE_COLOR = os.getenv("DARK_SQUARE_COLOR", None)
-LIGHT_SQUARE_COLOR = os.getenv("LIGHT_SQUARE_COLOR", None)
-HIGHLIGHT_COLOR = os.getenv("HIGHLIGHT_COLOR", None)
-
+WHITE_URL = os.getenv("WHITE_URL", "http://localhost:8001")
+BLACK_URL = os.getenv("BLACK_URL", "http://localhost:8002")
 
 async def run() -> None:
     board = chess.Board()
+    
     # initialize UI with the starting FEN
     game_board = display.start(board.fen())
 
@@ -55,7 +49,7 @@ async def run() -> None:
     async with wb_white, wb_black:
         current_wb, current_name = wb_white, "white"
         other_wb, other_name     = wb_black, "black"
-        max_invalid = 10
+        max_invalid = 50
         invalid_count = 0
 
         while not board.is_game_over():
@@ -66,12 +60,12 @@ async def run() -> None:
             result = await current_wb.call_tool("move", {"fen": fen})
             # parse SSE chunked response
             content = result.result[0].content
-            print("type tool result :", content)
+            print("Current move is :", content)
             if not content or 'uci' not in content:
                 invalid_count += 1
                 log.warning(f"{current_name} agent error ({invalid_count}/{max_invalid}): {content}")
                 if invalid_count  <= max_invalid:
-                    asyncio.sleep(1)
+                    await asyncio.sleep(1)
                     continue
                 else:
                     log.error("Too many invalid moves; aborting game.")

@@ -12,9 +12,17 @@ npx @modelcontextprotocol/inspector
 mcp dev mcp_sse/black/black_agent.py:mcp
 
 docker build -f mcp_sse/white/Dockerfile -t white-agent:latest .
+docker run --name white-agent -p 8001:8000 white-agent:latest
 
 docker run --env-file .env -d --name white-agent -p 8001:8000 white-agent:latest
 
+
 docker build -f mcp_sse/black/Dockerfile -t black-agent:latest .
+docker run --name black-agent -p 8002:8000 black-agent:latest
 
 docker run --env-file .env -d --name black-agent -p 8002:8000 black-agent:latest
+
+
+
+# run the agent locally
+uv run ./mcp_sse/white/white_agent.py --host 0.0.0.0 --port 8000
