@@ -11,3 +11,4 @@ wheels/
 .env
 .pgn
 mcp_stdio/game_record.pgn
+mcp_sse/game_record.pgn

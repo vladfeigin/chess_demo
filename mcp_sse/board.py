@@ -13,7 +13,6 @@ Requires:
 import asyncio
 import json
 import os
-import sys
 import logging
 import chess
 import chess.pgn
@@ -64,7 +63,7 @@ async def run() -> None:
             if not content or 'uci' not in content:
                 invalid_count += 1
                 log.warning(f"{current_name} agent error ({invalid_count}/{max_invalid}): {content}")
-                if invalid_count  <= max_invalid:
+                if invalid_count <= max_invalid:
                     await asyncio.sleep(1)
                     continue
                 else:
@@ -81,7 +80,7 @@ async def run() -> None:
             if not payload or 'uci' not in payload:
                 invalid_count += 1
                 log.warning(f"{current_name} agent error ({invalid_count}/{max_invalid}): {payload}")
-                if invalid_count > max_invalid:
+                if invalid_count >= max_invalid:
                     log.error("Too many invalid moves; aborting game.")
                     break
                 continue
@@ -107,7 +106,7 @@ async def run() -> None:
             # swap turns
             current_wb, other_wb       = other_wb, current_wb
             current_name, other_name   = other_name, current_name
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
     # game over summary
     result = board.result()

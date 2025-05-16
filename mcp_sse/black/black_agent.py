@@ -14,25 +14,24 @@ from autogen_ext.models.openai import AzureOpenAIChatCompletionClient
 from dotenv import load_dotenv
 load_dotenv()
 
-
+MAX_NUMBER_OF_RETRIES = 5
 logging.basicConfig(level=logging.INFO, format="[BlackAgent] %(message)s")
 log = logging.getLogger(__name__)
 
-board = chess.Board()
 
 mcp = FastMCP(name="Black Pieces Chess Agent",
               description="Black pieces chess agent using SSE transport",
               base_url="http://localhost:8000",
-
               describe_all_responses=True,  # Include all possible response schemas
               describe_full_response_schema=True)  # Include full JSON schema in descriptions)
 
 client = AzureOpenAIChatCompletionClient(
-    model="gpt-4o",
-    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+    model=os.getenv("AZURE_OPENAI_MODEL", "gpt-4o"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
     azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
-    api_version="2024-02-15-preview",
+    api_version= os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview"),
 )
+
 agent = AssistantAgent(
     name="black_pieces_player",
     model_client=client,
@@ -66,43 +65,47 @@ agent = AssistantAgent(
     description="Return a legal black move in UCI for the provided FEN.",
 )
 async def move_tool(fen: str):
-    """Return next black move (UCI)."""
-    log.info(f"[BlackAgent] Received move request. FEN: {fen}")
-    
-    # Verify that we got a valid FEN string, not a UCI move
-    if len(fen.split()) < 4 or '/' not in fen:
-        log.error(f"[BlackAgent] ERROR: Invalid FEN format: {fen}")
-        return {"error": f"Invalid input: expected FEN position string, got '{fen}'"}
-    
+    """Return ONE legal black move in UCI."""
+    log.info("[BlackAgent] Received FEN %s", fen)
+
+    # 1─ Parse FEN safely
     try:
-        board.set_fen(fen)
+        board = chess.Board(fen)       # fresh board per request
     except ValueError as e:
-        log.error(f"[BlackAgent] ERROR: Cannot set board from FEN: {e}")
-        return {"error": f"Invalid FEN: {str(e)}"}
-    
-    # Make sure it' black's turn in this position
-    if board.turn:
-        log.info("[BlackAgent] ERROR: It's white's turn in this position, but I'm the black pieces player")
-        return {"error": "It's not black's turn in this position"}
-    
-    prompt = f"You are black pieces player. Current board FEN: {fen}. Provide one legal move in UCI only."
-    resp = await agent.run(task=prompt)
-    uci_raw = resp.messages[-1].content   # e.g. "e2e4 TERMINATE"
-    uci = uci_raw.split()[0]              # take first token → "e2e4"
-    log.info("[BlackAgent] LLM suggested: %s", uci)
-    
-    # Validate the UCI move
-    try:
-        mv = chess.Move.from_uci(uci)
-        if mv not in board.legal_moves:
-            log.info("[BlackAgent] Illegal move detected -> %s", uci)
-            return {"error": f"illegal move {uci}"}
-    except ValueError:
-        log.error(f"[BlackAgent] Invalid UCI format: {uci}")
-        return {"error": f"Invalid UCI move format: {uci}"}
-        
-    log.info("[BlackAgent] Move accepted -> %s", uci)
-    return {"uci": uci}
+        return {"error": f"Invalid FEN: {e}"}
+
+    if board.turn:                      # True → White to move
+        return {"error": "It's not black's turn"}
+
+    # 2─ Build the legal-move menu
+    legal_uci = [m.uci() for m in board.legal_moves]
+    if not legal_uci:                   # mate / stalemate
+        return {"error": "no legal moves"}
+
+    prompt = (
+        f"You are Black. FEN: {fen}\n"
+        "Choose ONE BEST move from this list and output it **exactly**:\n"
+        + ", ".join(legal_uci)
+    )
+
+    # 3─ Up to MAX_NUMBER_OF_RETRIES attempts to get a legal reply
+    for _ in range(MAX_NUMBER_OF_RETRIES):
+        resp = await agent.run(task=prompt)
+        uci = resp.messages[-1].content.strip().split()[0].lower()
+
+        if uci in legal_uci:
+            log.info("[BlackAgent] Accepted move %s", uci)
+            return {"uci": uci}
+
+        # feedback for retry
+        prompt = (
+            f"That move:{uci} is not in the list or is illegal. "
+            "Pick ONE move from: " + ", ".join(legal_uci)
+        )
+
+    # 4─ Give up after MAX_NUMBER_OF_RETRIES bad tries
+    log.warning("[BlackAgent] Too many illegal replies: %s", uci)
+    return {"error": f"illegal move {uci}"}
 
 if __name__ == "__main__":
     # mcp is your FastMCP instance
